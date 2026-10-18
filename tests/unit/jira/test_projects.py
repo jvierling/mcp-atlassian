@@ -1129,6 +1129,41 @@ def test_create_project_component_error(projects_mixin: ProjectsMixin) -> None:
         projects_mixin.create_project_component("PROJ", "Backend")
 
 
+def test_create_project_component_error_with_lead_but_not_created(
+    projects_mixin: ProjectsMixin,
+) -> None:
+    """Original error is re-raised when Jira did not create the component."""
+    projects_mixin.jira.create_component.side_effect = Exception("API failure")
+    projects_mixin.jira.get_project_components.return_value = []
+    with pytest.raises(Exception, match="API failure"):
+        projects_mixin.create_project_component("PROJ", "API", lead="bad")
+
+
+def test_create_project_component_partial_creation_with_lead(
+    projects_mixin: ProjectsMixin,
+) -> None:
+    """A clear error is raised when Jira fails but still created the component."""
+    projects_mixin.jira.create_component.side_effect = Exception("user not found")
+    projects_mixin.jira.get_project_components.side_effect = [
+        [],
+        [{"id": "77", "name": "API"}],
+    ]
+    with pytest.raises(ValueError, match=r"id 77.*without the requested lead"):
+        projects_mixin.create_project_component("PROJ", "API", lead="bad")
+
+
+def test_create_project_component_duplicate_with_lead_keeps_original_error(
+    projects_mixin: ProjectsMixin,
+) -> None:
+    """A pre-existing component is not mistaken for a partial creation."""
+    projects_mixin.jira.create_component.side_effect = Exception("already exists")
+    projects_mixin.jira.get_project_components.return_value = [
+        {"id": "5", "name": "API"}
+    ]
+    with pytest.raises(Exception, match="already exists"):
+        projects_mixin.create_project_component("PROJ", "API", lead="acct")
+
+
 def test_search_projects(projects_mixin: ProjectsMixin, mock_projects: list[dict]):
     """Test search_projects returns matching projects from the picker endpoint."""
     projects_mixin.config.projects_filter = None
