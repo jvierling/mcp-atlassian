@@ -186,6 +186,39 @@ class ProjectsMixin(JiraClient, SearchOperationsProto):
             )
             return []
 
+    def create_project_component(
+        self,
+        project_key: str,
+        name: str,
+        description: str | None = None,
+        lead: str | None = None,
+        assignee_type: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Create a new component in the specified Jira project.
+
+        Args:
+            project_key: The project key (e.g., 'PROJ')
+            name: The name of the component
+            description: Description of the component (optional)
+            lead: Component lead - account ID on Cloud, username on Server/DC
+                (optional)
+            assignee_type: One of PROJECT_DEFAULT, COMPONENT_LEAD, PROJECT_LEAD,
+                UNASSIGNED (optional)
+
+        Returns:
+            The created component object as returned by Jira
+        """
+        component: dict[str, Any] = {"project": project_key, "name": name}
+        if description is not None:
+            component["description"] = description
+        if lead is not None:
+            lead_key = "leadAccountId" if self.config.is_cloud else "leadUserName"
+            component[lead_key] = lead
+        if assignee_type is not None:
+            component["assigneeType"] = assignee_type
+        return self.jira.create_component(component)
+
     def get_project_versions(self, project_key: str) -> list[dict[str, Any]]:
         """
         Get all versions for a project.
